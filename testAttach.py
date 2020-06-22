@@ -376,13 +376,61 @@ def modify_pfcp_session_test():
   modify = craft_pfcp_session_modify_packet()
   send_receive_pfcp_modify_session_message(modify)
 
+def craft_pfcp_session_delete_packet():
+  global peer_address, peer_seid
+  udp = scapy.UDP()
+  ip = scapy.IP()
+  
+  ip.src = localaddr
+  ip.dst = peer_address 
+  
+  #fill pfcp header 
+  pfcp_header = pfcp.PFCP()
+  pfcp_header.version=1
+  pfcp_header.S=1
+  pfcp_header.message_type=54
+  pfcp_header.seid=peer_seid
+  pfcp_header.seq= 3
+  
+  delete_pkt = ip/udp/pfcp_header
+  return delete_pkt
+
+def send_receive_pfcp_delete_session_message(delete_pkt):
+  scapy.send(delete_pkt)
+  data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+  print("received message: %s" % data)
+  decoded_p1 = pfcp.PFCP()
+  decoded_p1.dissect(data)
+  if(decoded_p1.message_type == 53):
+    #this is setup response 
+    for ie in decoded_p1.payload.IE_list:
+      if(ie.ie_type == 60):
+        decoded_node_type = ie
+        print("decoded node type : ")
+      elif (ie.ie_type == 19):
+        print("decoded cause : ",ie.cause)
+      elif (ie.ie_type == 96):
+        print("recovery timestamp received")
+      elif (ie.ie_type == 116):
+        print("decoded ip resource information received")
+  else:
+    print("Received packet {}",decoded_p1.message_type)
+
+
+def delete_pfcp_session_test():
+  print("delete PFCP session ")
+  delete = craft_pfcp_session_delete_packet()
+  send_receive_pfcp_delete_session_message(delete)
+
+
 def main():
   open_socket()
   while True:
-    print("1 - Setup PFCP Association ")
-    print("2 - Setup PFCP Session Establishment")
-    print("3 - Setup PFCP Session Modification ")
-    print("4 - Exit test ")
+    print("1 - Initiate PFCP Setup Association ")
+    print("2 - Initiate PFCP Session Establishment")
+    print("3 - Initiate PFCP Session Modification ")
+    print("4 - Release PFCP Session ")
+    print("5 - Exit test ")
     try:
       option = int(input("Enter your option : "))
     except Exception as e:
@@ -398,7 +446,10 @@ def main():
         print("Selected option 3 - Modify PFCP Session")
         modify_pfcp_session_test()
     elif option == 4:
-        print("Selected option 4. Exiting program")
+        print("Selected option 4. Delete PFCP Session ")
+        delete_pfcp_session_test()
+    elif option == 5:
+        print("Selected option 5. Exiting program")
         return
 
 if __name__ == "__main__":
