@@ -17,6 +17,25 @@ localaddr = ifcfg.interfaces()['eth0']['inet']
 sock = None
 peer_address = "0.0.0.0"
 peer_seid = 0
+PDR_ID = '1'
+SESSION_ID = '1'
+TEID = 255
+TUNNEL_DPORT = '2152'
+FAR_UPLINK = '1'
+FAR_DOWNLINK = '2'
+
+DIR_UPLINK = '1'
+DIR_DOWNLINK = '2'
+
+IFACE_ACCESS = '1'
+IFACE_CORE = '2'
+
+UE_IPV4 = '17.0.0.1'
+
+S1U_IPV4 = '140.0.100.254'
+ENODEB_IPV4 = '140.0.100.1'
+
+TUNNEL_TYPE_GPDU = '3'
 
 def open_socket():
   global sock
@@ -114,8 +133,8 @@ def craft_pfcp_session_est_packet():
   #F-TEID
   fteid1 = pfcp.IE_FTEID()
   fteid1.V4=1
-  fteid1.TEID=123456
-  fteid1.ipv4="1.1.1.1"
+  fteid1.TEID=255
+  fteid1.ipv4=S1U_IPV4
   pdi1.IE_list.append(fteid1)
   #SDF filter 
   sdf1 = pfcp.IE_SDF_Filter()
@@ -159,7 +178,7 @@ def craft_pfcp_session_est_packet():
   #ue IP address 
   ueaddr = pfcp.IE_UE_IP_Address() 
   ueaddr.V4 = 1
-  ueaddr.ipv4 = "12.1.1.1"
+  ueaddr.ipv4 = UE_IPV4
   pdi2.IE_list.append(ueaddr);
   
   #SDF filter 
@@ -267,11 +286,13 @@ def craft_pfcp_session_est_packet():
   return final
 
 def send_receive_pfcp_create_session_message(create_session_pkt):
+  create_session_pkt.show()
   scapy.send(create_session_pkt)
   data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
   print("received message: %s" % data)
   decoded_p1 = pfcp.PFCP()
   decoded_p1.dissect(data)
+  decoded_p1.show()
   if(decoded_p1.message_type == 51):
     #this is setup response 
     for ie in decoded_p1.payload.IE_list:
@@ -335,8 +356,8 @@ def craft_pfcp_session_modify_packet():
   
   outerHeader = pfcp.IE_OuterHeaderCreation()
   outerHeader.GTPUUDPIPV4=1
-  outerHeader.ipv4="1.1.1.2"
-  outerHeader.TEID=111111
+  outerHeader.ipv4=ENODEB_IPV4
+  outerHeader.TEID=TEID
   updforwarding.IE_list.append(outerHeader)
   
   far1.IE_list.append(updforwarding)
@@ -383,6 +404,7 @@ def craft_pfcp_session_delete_packet():
   
   ip.src = localaddr
   ip.dst = peer_address 
+  ip.dst = upfaddr 
   
   #fill pfcp header 
   pfcp_header = pfcp.PFCP()
@@ -397,6 +419,7 @@ def craft_pfcp_session_delete_packet():
 
 def send_receive_pfcp_delete_session_message(delete_pkt):
   scapy.send(delete_pkt)
+  delete_pkt.show()
   data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
   print("received message: %s" % data)
   decoded_p1 = pfcp.PFCP()
